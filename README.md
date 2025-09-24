@@ -41,10 +41,15 @@ Estimates the likelihood of a customer leaving (churn) or staying.
 ## 📂 Project Structure
 Retail-Predictor/
 │
+
 ├── app.py # Main Streamlit app
+
 ├── random_forest_high_spend.pkl # Trained Random Forest model
+
 ├── xgboost_churn.pkl # Trained XGBoost model
+
 ├── requirements.txt # Dependencies
+
 └── README.md # Project documentation
 
 
@@ -75,8 +80,11 @@ streamlit run app.py
 
 ### ✅ Tech Stack
 **Streamlit** — Interactive user interface
+
 **Pandas** — Data processing
+
 **Scikit-learn** — Random Forest model
+
 **XGBoost** — Churn prediction model
 
 ### 📌 Notes
