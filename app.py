@@ -4,32 +4,20 @@ import pandas as pd
 import os
 import gdown
 
-# -------------------------------
-# Utility: Download models from Google Drive if not already present
-# -------------------------------
-def download_model(url, filename):
-    if not os.path.exists(filename):
-        gdown.download(url, filename, quiet=False)
+@st.cache_resource
+def load_rf_model():
+    if not os.path.exists("random_forest_high_spend.joblib"):
+        gdown.download("https://drive.google.com/uc?export=download&id=1-Ba7YlUb_32oA_wlC32BRJ0RbwYotjFc",
+                       "random_forest_high_spend.joblib", quiet=False)
+    return joblib.load("random_forest_high_spend.joblib")
 
-# ✅ Replace with your uploaded .joblib links
-download_model(
-    "https://drive.google.com/uc?export=download&id=1-Ba7YlUb_32oA_wlC32BRJ0RbwYotjFc",
-    "random_forest_high_spend.joblib"
-)
-download_model(
-    "https://drive.google.com/uc?export=download&id=1GJgCpzISeKoUrT5GuUUN9jcDxkoPzrT9",
-    "xgboost_churn.joblib"
-)
+@st.cache_resource
+def load_xgb_model():
+    if not os.path.exists("xgboost_churn.joblib"):
+        gdown.download("https://drive.google.com/uc?export=download&id=1GJgCpzISeKoUrT5GuUUN9jcDxkoPzrT9",
+                       "xgboost_churn.joblib", quiet=False)
+    return joblib.load("xgboost_churn.joblib")
 
-# -------------------------------
-# Load models
-# -------------------------------
-rf_model = joblib.load("random_forest_high_spend.joblib")
-xgb_model = joblib.load("xgboost_churn.joblib")
-
-# -------------------------------
-# Encoders (must match training encoding)
-# -------------------------------
 cat_encoders = {
     "Customer_Category": {'Student': 0, 'Teenager': 1, 'Middle-Aged': 2, 'Senior Citizen': 3, 'Retiree': 4},
     "City": {'New York': 0, 'Chicago': 1, 'Los Angeles': 2, 'San Francisco': 3,
@@ -38,9 +26,6 @@ cat_encoders = {
     "Payment_Method": {'Credit Card': 0, 'Debit Card': 1, 'Cash': 2}
 }
 
-# -------------------------------
-# Streamlit page setup
-# -------------------------------
 st.set_page_config(page_title="Retail Predictor", layout="wide")
 
 st.markdown(
@@ -72,19 +57,14 @@ st.markdown(
 
 tab1, tab2 = st.tabs(["🌲 Random Forest", "🔥 XGBoost"])
 
-# -------------------------------
-# Random Forest Tab
-# -------------------------------
 with tab1:
     st.markdown("<div class='model-name-rf'>🌲 Random Forest (Accuracy: 96%) — High Spend</div>", unsafe_allow_html=True)
-
     basket_size = st.number_input("Basket Size (No. of Items Purchased)", min_value=1, step=1, key="rf_basket")
     avg_item_price = st.number_input("Average Item Price", min_value=1, step=1, key="rf_avg")
     dow_label = st.selectbox("Day", ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], key="rf_dow")
     dow_map = {"Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6, "Sun": 7}
     dayofweek = dow_map[dow_label]
     hour = st.number_input("Hour of Transaction (0-23)", min_value=0, max_value=23, step=1, key="rf_hour")
-
     rf_input = pd.DataFrame([{
         "Basket_Size": int(basket_size),
         "Avg_Item_Price": float(avg_item_price),
@@ -92,45 +72,36 @@ with tab1:
         "Hour": int(hour),
         "Basket_Value": float(basket_size) * float(avg_item_price)
     }])
-
-    rf_input = rf_input.reindex(columns=rf_model.feature_names_in_, fill_value=0)
-
     if st.button("Predict High Spend Flag", key="rf_btn"):
+        rf_model = load_rf_model()
+        rf_input = rf_input.reindex(columns=rf_model.feature_names_in_, fill_value=0)
         rf_pred = rf_model.predict(rf_input)[0]
         if rf_pred == 1:
             st.markdown(f"<div class='result result-good'>💸 High Spender</div>", unsafe_allow_html=True)
         else:
             st.markdown(f"<div class='result result-bad'>🛒 Normal Spender</div>", unsafe_allow_html=True)
 
-# -------------------------------
-# XGBoost Tab
-# -------------------------------
 with tab2:
     st.markdown("<div class='model-name-xgb'>🔥 XGBoost (Accuracy: 83%) — Churn Prediction</div>", unsafe_allow_html=True)
-
     customer_category = st.selectbox("Customer Category", list(cat_encoders["Customer_Category"].keys()), key="xgb_cat")
     city = st.selectbox("City", list(cat_encoders["City"].keys()), key="xgb_city")
     store_type = st.selectbox("Store Type", list(cat_encoders["Store_Type"].keys()), key="xgb_store")
     payment_method = st.selectbox("Payment Method", list(cat_encoders["Payment_Method"].keys()), key="xgb_pay")
-
     recency = st.number_input("Recency (Days since Last Purchase)", min_value=0, step=1, key="xgb_recency")
     frequency = st.number_input("Frequency (No. of Purchases)", min_value=0, step=1, key="xgb_freq")
     monetary = st.number_input("Monetary (Total Spend)", min_value=0.0, step=1.0, key="xgb_monetary")
-
-    # Apply encoding
-    xgb_input = pd.DataFrame([{
-        "Recency": float(recency),
-        "Frequency": int(frequency),
-        "Monetary": float(monetary),
-        "Customer_Category": cat_encoders["Customer_Category"][customer_category],
-        "City": cat_encoders["City"][city],
-        "Store_Type": cat_encoders["Store_Type"][store_type],
-        "Payment_Method": cat_encoders["Payment_Method"][payment_method]
-    }])
-
-    xgb_input = xgb_input.reindex(columns=xgb_model.feature_names_in_, fill_value=0)
-
     if st.button("Predict Churn", key="xgb_btn"):
+        xgb_model = load_xgb_model()
+        xgb_input = pd.DataFrame([{
+            "Recency": float(recency),
+            "Frequency": int(frequency),
+            "Monetary": float(monetary),
+            "Customer_Category": cat_encoders["Customer_Category"][customer_category],
+            "City": cat_encoders["City"][city],
+            "Store_Type": cat_encoders["Store_Type"][store_type],
+            "Payment_Method": cat_encoders["Payment_Method"][payment_method]
+        }])
+        xgb_input = xgb_input.reindex(columns=xgb_model.feature_names_in_, fill_value=0)
         churn_pred = xgb_model.predict(xgb_input)[0]
         if churn_pred == 1:
             st.markdown(f"<div class='result result-bad'>❌ Likely to Churn</div>", unsafe_allow_html=True)
