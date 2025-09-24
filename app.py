@@ -3,6 +3,7 @@ import pickle
 import pandas as pd
 import os
 import gdown
+import sys
 
 def download_model(url, filename):
     if not os.path.exists(filename):
@@ -25,6 +26,10 @@ def clip_features(X):
     X["Frequency"] = X["Frequency"].clip(0, 20)
     X["Monetary"] = X["Monetary"].clip(50, 550)
     return X
+
+# ✅ Register custom functions so pickle can find them
+sys.modules['__main__'].clip_features = clip_features
+sys.modules['__main__'].add_basket_value = add_basket_value
 
 with open("random_forest_high_spend.pkl", "rb") as f:
     rf_model = pickle.load(f)
@@ -141,3 +146,4 @@ to support marketing, loyalty programs, and retention strategies.''')
             st.markdown(f"<div class='result result-bad'>❌ Likely to Churn</div>", unsafe_allow_html=True)
         else:
             st.markdown(f"<div class='result result-good'>✅ Likely to Stay</div>", unsafe_allow_html=True)
+
