@@ -44,9 +44,9 @@ Retail-Predictor/
 
 ├── app.py # Main Streamlit app
 
-├── random_forest_high_spend.pkl # Trained Random Forest model
+├── random_forest_high_spend.joblib # Trained Random Forest model
 
-├── xgboost_churn.pkl # Trained XGBoost model
+├── xgboost_churn.joblib # Trained XGBoost model
 
 ├── requirements.txt # Dependencies
 
@@ -91,4 +91,4 @@ streamlit run app.py
 - Random Forest is tuned to detect high-spending customers.
 - XGBoost is tuned to detect customer churn risk.
 
-Both models were pre-trained and saved as .pkl files for deployment.
+Both models were pre-trained and saved as .joblib files for deployment.
