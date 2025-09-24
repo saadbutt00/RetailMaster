@@ -102,8 +102,10 @@ with tab2:
             "Payment_Method": cat_encoders["Payment_Method"][payment_method]
         }])
         xgb_input = xgb_input.reindex(columns=xgb_model.feature_names_in_, fill_value=0)
+        xgb_input = xgb_input.astype(float)
         churn_pred = xgb_model.predict(xgb_input)[0]
         if churn_pred == 1:
             st.markdown(f"<div class='result result-bad'>❌ Likely to Churn</div>", unsafe_allow_html=True)
         else:
             st.markdown(f"<div class='result result-good'>✅ Likely to Stay</div>", unsafe_allow_html=True)
+
