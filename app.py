@@ -1,42 +1,46 @@
 import streamlit as st
-import pickle
+import joblib
 import pandas as pd
 import os
 import gdown
-import sys
 
+# -------------------------------
+# Utility: Download models from Google Drive if not already present
+# -------------------------------
 def download_model(url, filename):
     if not os.path.exists(filename):
         gdown.download(url, filename, quiet=False)
 
-# ✅ Download models from Google Drive
-download_model("https://drive.google.com/uc?export=download&id=1ickiXA8ZakRHI0UPxEFToFVq5FRwr4nv",
-               "random_forest_high_spend.pkl")
-download_model("https://drive.google.com/uc?export=download&id=1m-VuAaseZ5Gn2yn5hJgMcknw17EC9Sxy",
-               "xgboost_churn.pkl")
+# ✅ Replace with your uploaded .joblib links
+download_model(
+    "https://drive.google.com/uc?export=download&id=1-Ba7YlUb_32oA_wlC32BRJ0RbwYotjFc",
+    "random_forest_high_spend.joblib"
+)
+download_model(
+    "https://drive.google.com/uc?export=download&id=1GJgCpzISeKoUrT5GuUUN9jcDxkoPzrT9",
+    "xgboost_churn.joblib"
+)
 
-def add_basket_value(X):
-    X = X.copy()
-    X["Basket_Value"] = X["Basket_Size"] * X["Avg_Item_Price"]
-    return X
+# -------------------------------
+# Load models
+# -------------------------------
+rf_model = joblib.load("random_forest_high_spend.joblib")
+xgb_model = joblib.load("xgboost_churn.joblib")
 
-def clip_features(X):
-    X = X.copy()
-    X["Recency"] = X["Recency"].clip(50, 700)
-    X["Frequency"] = X["Frequency"].clip(0, 20)
-    X["Monetary"] = X["Monetary"].clip(50, 550)
-    return X
+# -------------------------------
+# Encoders (must match training encoding)
+# -------------------------------
+cat_encoders = {
+    "Customer_Category": {'Student': 0, 'Teenager': 1, 'Middle-Aged': 2, 'Senior Citizen': 3, 'Retiree': 4},
+    "City": {'New York': 0, 'Chicago': 1, 'Los Angeles': 2, 'San Francisco': 3,
+             'Boston': 4, 'Dallas': 5, 'Seattle': 6, 'Houston': 7, 'Miami': 8},
+    "Store_Type": {'Department Store': 0, 'Warehouse Club': 1, 'Pharmacy': 2, 'Supermarket': 3},
+    "Payment_Method": {'Credit Card': 0, 'Debit Card': 1, 'Cash': 2}
+}
 
-# ✅ Register custom functions so pickle can find them
-sys.modules['__main__'].clip_features = clip_features
-sys.modules['__main__'].add_basket_value = add_basket_value
-
-with open("random_forest_high_spend.pkl", "rb") as f:
-    rf_model = pickle.load(f)
-
-with open("xgboost_churn.pkl", "rb") as f:
-    xgb_model = pickle.load(f)
-
+# -------------------------------
+# Streamlit page setup
+# -------------------------------
 st.set_page_config(page_title="Retail Predictor", layout="wide")
 
 st.markdown(
@@ -68,25 +72,16 @@ st.markdown(
 
 tab1, tab2 = st.tabs(["🌲 Random Forest", "🔥 XGBoost"])
 
+# -------------------------------
+# Random Forest Tab
+# -------------------------------
 with tab1:
-    st.write('''This Retail Predictor App helps businesses analyze customer behavior using machine learning models. 
-    It provides two main predictive services:
-- High Spending Prediction (Random Forest, 96% Accuracy):
-- Predicts whether a customer belongs to the top 5% of high spenders based on features like:
-
-**Features:**
-
-    - Basket Size (number of items purchased)
-    - Average Item Price
-    - Day of Week of purchase
-    - Hour of Transaction''')
-
     st.markdown("<div class='model-name-rf'>🌲 Random Forest (Accuracy: 96%) — High Spend</div>", unsafe_allow_html=True)
 
     basket_size = st.number_input("Basket Size (No. of Items Purchased)", min_value=1, step=1, key="rf_basket")
     avg_item_price = st.number_input("Average Item Price", min_value=1, step=1, key="rf_avg")
-    dow_label = st.selectbox("Day", ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], key="rf_dow")
-    dow_map = {"Mon":1,"Tue":2,"Wed":3,"Thu":4,"Fri":5,"Sat":6,"Sun":7}
+    dow_label = st.selectbox("Day", ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], key="rf_dow")
+    dow_map = {"Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6, "Sun": 7}
     dayofweek = dow_map[dow_label]
     hour = st.number_input("Hour of Transaction (0-23)", min_value=0, max_value=23, step=1, key="rf_hour")
 
@@ -94,8 +89,11 @@ with tab1:
         "Basket_Size": int(basket_size),
         "Avg_Item_Price": float(avg_item_price),
         "DayOfWeek": int(dayofweek),
-        "Hour": int(hour)
+        "Hour": int(hour),
+        "Basket_Value": float(basket_size) * float(avg_item_price)
     }])
+
+    rf_input = rf_input.reindex(columns=rf_model.feature_names_in_, fill_value=0)
 
     if st.button("Predict High Spend Flag", key="rf_btn"):
         rf_pred = rf_model.predict(rf_input)[0]
@@ -104,41 +102,33 @@ with tab1:
         else:
             st.markdown(f"<div class='result result-bad'>🛒 Normal Spender</div>", unsafe_allow_html=True)
 
+# -------------------------------
+# XGBoost Tab
+# -------------------------------
 with tab2:
-    st.write('''Customer Churn Prediction (XGBoost, 83% Accuracy):
-- Estimates the likelihood of a customer leaving (churn) or staying based on features such as:
-
-    - Recency (days since last purchase)
-    - Frequency (number of purchases)
-    - Monetary Value (total spend)
-    - Customer Category (e.g., Student, Professional)
-    - City
-    - Store Type
-    - Payment Method
-    
-With an interactive interface, the app lets users input customer data and instantly get predictive insights
-to support marketing, loyalty programs, and retention strategies.''')
-
     st.markdown("<div class='model-name-xgb'>🔥 XGBoost (Accuracy: 83%) — Churn Prediction</div>", unsafe_allow_html=True)
 
-    customer_category = st.selectbox("Customer Category", ['Student', 'Teenager', 'Middle-Aged', 'Senior Citizen', 'Retiree'], key="xgb_cat")
-    city = st.selectbox("City", ['New York', 'Chicago', 'Los Angeles', 'San Francisco', 'Boston', 'Dallas', 'Seattle', 'Houston', 'Miami'], key="xgb_city")
-    store_type = st.selectbox("Store Type", ['Department Store','Warehouse Club','Pharmacy','Supermarket'], key="xgb_store")
-    payment_method = st.selectbox("Payment Method", ['Credit Card','Debit Card','Cash'], key="xgb_pay")
+    customer_category = st.selectbox("Customer Category", list(cat_encoders["Customer_Category"].keys()), key="xgb_cat")
+    city = st.selectbox("City", list(cat_encoders["City"].keys()), key="xgb_city")
+    store_type = st.selectbox("Store Type", list(cat_encoders["Store_Type"].keys()), key="xgb_store")
+    payment_method = st.selectbox("Payment Method", list(cat_encoders["Payment_Method"].keys()), key="xgb_pay")
 
     recency = st.number_input("Recency (Days since Last Purchase)", min_value=0, step=1, key="xgb_recency")
     frequency = st.number_input("Frequency (No. of Purchases)", min_value=0, step=1, key="xgb_freq")
     monetary = st.number_input("Monetary (Total Spend)", min_value=0.0, step=1.0, key="xgb_monetary")
 
+    # Apply encoding
     xgb_input = pd.DataFrame([{
         "Recency": float(recency),
         "Frequency": int(frequency),
         "Monetary": float(monetary),
-        "Customer_Category": customer_category,
-        "City": city,
-        "Store_Type": store_type,
-        "Payment_Method": payment_method
+        "Customer_Category": cat_encoders["Customer_Category"][customer_category],
+        "City": cat_encoders["City"][city],
+        "Store_Type": cat_encoders["Store_Type"][store_type],
+        "Payment_Method": cat_encoders["Payment_Method"][payment_method]
     }])
+
+    xgb_input = xgb_input.reindex(columns=xgb_model.feature_names_in_, fill_value=0)
 
     if st.button("Predict Churn", key="xgb_btn"):
         churn_pred = xgb_model.predict(xgb_input)[0]
@@ -146,4 +136,3 @@ to support marketing, loyalty programs, and retention strategies.''')
             st.markdown(f"<div class='result result-bad'>❌ Likely to Churn</div>", unsafe_allow_html=True)
         else:
             st.markdown(f"<div class='result result-good'>✅ Likely to Stay</div>", unsafe_allow_html=True)
-
