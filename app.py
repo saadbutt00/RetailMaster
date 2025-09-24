@@ -89,7 +89,7 @@ with tab2:
     payment_method = st.selectbox("Payment Method", list(cat_encoders["Payment_Method"].keys()), key="xgb_pay")
     recency = st.number_input("Recency (Days since Last Purchase)", min_value=0, step=1, key="xgb_recency")
     frequency = st.number_input("Frequency (No. of Purchases)", min_value=0, step=1, key="xgb_freq")
-    monetary = st.number_input("Monetary (Total Spend)", min_value=0.0, step=1.0, key="xgb_monetary")
+    monetary = st.number_input("Monetary (Total Spend)", min_value=2.0, step=1.0, key="xgb_monetary")
     if st.button("Predict Churn", key="xgb_btn"):
         xgb_model = load_xgb_model()
         xgb_input = pd.DataFrame([{
@@ -108,4 +108,5 @@ with tab2:
             st.markdown(f"<div class='result result-bad'>❌ Likely to Churn</div>", unsafe_allow_html=True)
         else:
             st.markdown(f"<div class='result result-good'>✅ Likely to Stay</div>", unsafe_allow_html=True)
+
 
